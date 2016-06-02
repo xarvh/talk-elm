@@ -5,9 +5,14 @@ import Slides exposing (md)
 main = Slides.program
 
 
-    [ md """
+    [ md
+        """
+        ### aaaaaaaaa
+        loool lol
 
-         # Elm: making functional programming accessible
+        ### Elm: making functional programming accessible ###
+
+        lorem ipsum meeehh!
 
         """
 
