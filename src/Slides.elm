@@ -35,10 +35,10 @@ slidePixelSize =
 
 keyCodesToMessage =
     [   { message = First
-        , keyCodes = [110] -- Home
+        , keyCodes = [36] -- Home
         }
     ,   { message = Last
-        , keyCodes = [115] -- End
+        , keyCodes = [35] -- End
         }
     ,   { message = Next
         , keyCodes = [13, 32, 39, 76, 68] -- Enter, Spacebar, Arrow Right, l, d
