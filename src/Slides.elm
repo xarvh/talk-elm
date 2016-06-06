@@ -187,13 +187,26 @@ currentSlide model =
 view : Model -> Html Message
 view model =
     div
-        [ class "slide center" ]
+        [ class "slide"
+        , style
+            [   ("position", "relative")
+            ,   ("width", "100%")
+            ,   ("height", "100%")
+            ,   ("overflow", "hidden")
+            ]
+        ]
         [ div
             [ class "slides"
             , style
                 [ ("width", toString slidePixelSize.width ++ "px")
                 , ("height", toString slidePixelSize.height ++ "px")
                 , ("transform", "translate(-50%, -50%) scale(" ++ toString model.scale ++ ")")
+
+                , ("left", "50%")
+                , ("top", "50%")
+                , ("bottom", "auto")
+                , ("right", "auto")
+                , ("position", "absolute")
                 ]
             ]
             [ (currentSlide model).content ]
