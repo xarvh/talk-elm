@@ -14,10 +14,29 @@ module Slides exposing
 
 import Array exposing (Array)
 import Html exposing (..)
+import Html.Attributes exposing (class)
 import Html.App as App
 import Keyboard
 import Markdown exposing (defaultOptions)
 import String
+
+
+
+
+keyCodesToMessage =
+    [   { message = First
+        , keyCodes = [110] -- Home
+        }
+    ,   { message = Last
+        , keyCodes = [115] -- End
+        }
+    ,   { message = Next
+        , keyCodes = [13, 32, 39, 76, 68] -- Enter, Spacebar, Arrow Right, l, d
+        }
+    ,   { message = Prev
+        , keyCodes = [8, 37, 72, 65] -- Backspace, Arrow Left, h, a
+        }
+    ]
 
 
 --
@@ -55,6 +74,8 @@ unindent multilineString =
 --
 type Message
     = Noop
+    | First
+    | Last
     | Next
     | Prev
 
@@ -84,7 +105,11 @@ markdownOptions =
 
 md : String -> Slide
 md markdownContent =
-    { content = Markdown.toHtmlWith markdownOptions [] (unindent markdownContent) }
+    { content =
+        section
+            []
+            [ Markdown.toHtmlWith markdownOptions [] (unindent markdownContent) ]
+    }
 
 
 
@@ -110,13 +135,15 @@ update message oldModel =
         noCmd m =
             (m, Cmd.none)
 
-        selectSlide deltaIndex =
-            noCmd { oldModel | currentSlideIndex = clamp 0 (Array.length oldModel.slides - 1) (oldModel.currentSlideIndex + deltaIndex) }
+        selectSlide newIndex =
+            noCmd { oldModel | currentSlideIndex = clamp 0 (Array.length oldModel.slides - 1) newIndex }
     in
         case message of
             Noop -> noCmd oldModel
-            Prev -> selectSlide -1
-            Next -> selectSlide 1
+            First -> selectSlide 0
+            Last -> selectSlide 99999
+            Prev -> selectSlide <| oldModel.currentSlideIndex - 1
+            Next -> selectSlide <| oldModel.currentSlideIndex + 1
 
 
 
@@ -129,27 +156,31 @@ currentSlide model =
 
 view : Model -> Html Message
 view model =
-    div []
-        [ (currentSlide model).content ]
+    div
+        [ class "slide center" ]
+        [ div
+            [ class "slides" ]
+            [ (currentSlide model).content ]
+        ]
 
 
 
 --
 -- Subscriptions
 --
-keyboardPressDispatcher keyCode =
-    if List.member keyCode [13, 32, 39] -- Enter, Spacebar, Arrow Right
-    then Next
-    else
-        if List.member keyCode [8, 37] -- Backspace, Arrow Left
-        then Prev
-        else Noop
+keyPressDispatcher keyCodeMap keyCode =
+    case keyCodeMap of
+        x :: xs -> if List.member keyCode x.keyCodes then x.message else keyPressDispatcher xs keyCode
+        _ ->
+            let
+                q = Debug.log "k" keyCode
+            in Noop
 
 
 subscriptions model =
     Sub.batch
     -- TODO: switch to Keyboard.presses once https://github.com/elm-lang/keyboard/issues/3 is fixed
-    [ Keyboard.ups keyboardPressDispatcher
+    [ Keyboard.ups (keyPressDispatcher keyCodesToMessage)
     ]
 
 
