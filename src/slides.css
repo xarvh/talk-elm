@@ -1,8 +1,38 @@
 html, head, body {
     padding: 0;
     margin: 0;
+    height: 100%;
 }
 
 body {
     font-family: calibri, helvetica;
 }
+
+
+.slide {
+    font-size: 38px;
+    font-weight: normal;
+
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+
+.slides {
+    left: 50%;
+    top: 50%;
+    bottom: auto;
+    right: auto;
+
+    position: absolute;
+}
+
+
+/*
+.slides > section {
+    width: 100%;
+    padding: 20px 0px;
+}
+*/
