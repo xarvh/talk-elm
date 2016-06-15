@@ -36,4 +36,32 @@ main = Slides.app
         stuffity stuff!
 
         """
+    , md """
+
+        # 4 Stuff
+
+        stuffity stuff!
+
+        """
+    , md """
+
+        # 5 Stuff
+
+        stuffity stuff!
+
+        """
+    , md """
+
+        # 6 Stuff
+
+        stuffity stuff!
+
+        """
+    , md """
+
+        # 7 Stuff
+
+        stuffity stuff!
+
+        """
     ]

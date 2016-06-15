@@ -38,11 +38,11 @@ slidePixelSize =
 
 
 easingFunction =
-    Ease.inOutBounce
+    Ease.outSine
 
 
 animationDuration =
-    2000 * Time.millisecond
+    1000 * Time.millisecond
 
 keyCodesToMessage =
     [   { message = First
@@ -172,13 +172,35 @@ animate m deltaTime =
     if m.pause then m else
     case m.animationStatus of
         Idle -> m
-        Transitioning endSlideIndex completion ->
+        Transitioning outgoingSlideIndex completion ->
             let
                 newCompletion = completion + deltaTime / animationDuration
             in
                 if newCompletion >= 1
-                then { m | currentSlideIndex = endSlideIndex, animationStatus = Idle }
-                else { m | animationStatus = Transitioning endSlideIndex newCompletion }
+                then { m | animationStatus = Idle }
+                else { m | animationStatus = Transitioning outgoingSlideIndex newCompletion }
+
+
+
+selectSlide oldModel unclampedNewIndex =
+    let
+        newIndex =
+            clamp 0 (Array.length oldModel.slides - 1) unclampedNewIndex
+
+        comp = case oldModel.animationStatus of
+            Idle -> 0
+            Transitioning oldSlideIndex completion -> completion / 2
+    in
+        if newIndex == oldModel.currentSlideIndex
+        then oldModel
+        else
+            { oldModel
+            | animationStatus = Transitioning oldModel.currentSlideIndex comp
+            , currentSlideIndex = newIndex
+            }
+
+
+
 
 
 update : Message -> Model -> (Model, Cmd Message)
@@ -187,31 +209,22 @@ update message oldModel =
         noCmd m =
             (m, Cmd.none)
 
-
-        selectSlide newIndex =
-            let
-                newIndex = clamp 0 (Array.length oldModel.slides - 1) newIndex
-                newModel = { oldModel | animationStatus = Transitioning newIndex 0 }
-            in
-                noCmd <|
-                    if newIndex == oldModel.currentSlideIndex || oldModel.animationStatus /= Idle
-                    then oldModel
-                    else newModel
+        select = selectSlide oldModel
 
     in
-        case message of
-            Noop -> noCmd oldModel
+        noCmd <| case message of
+            Noop -> oldModel
 
-            First -> selectSlide 0
-            Last -> selectSlide 99999
-            Prev -> selectSlide <| oldModel.currentSlideIndex - 1
-            Next -> selectSlide <| oldModel.currentSlideIndex + 1
+            First -> select 0
+            Last -> select 99999
+            Prev -> select <| oldModel.currentSlideIndex - 1
+            Next -> select <| oldModel.currentSlideIndex + 1
 
-            WindowResizes size -> noCmd <| windowResize oldModel size
+            WindowResizes size -> windowResize oldModel size
 
-            AnimationTick deltaTime -> noCmd <| animate oldModel deltaTime
+            AnimationTick deltaTime -> animate oldModel deltaTime
 
-            Pause -> noCmd { oldModel | pause = not oldModel.pause }
+            Pause -> { oldModel | pause = not oldModel.pause }
 
 
 --
@@ -233,17 +246,17 @@ slideView model =
         Idle ->
             [ slideSection 0 0 0 model.currentSlideIndex ]
 
-        Transitioning newIndex completion ->
+        Transitioning outgoingSlideIndex completion ->
             let
                 -- moving forward, slides will translate leftwards
                 -- moving backwards, slides will translate rightwards
-                direction = if newIndex > model.currentSlideIndex then -1 else 1
+                direction = if outgoingSlideIndex < model.currentSlideIndex then -1 else 1
                 newSlideStartingOffset = -100 * direction
 
                 easedCompletion = easingFunction completion
             in
-                [ slideSection easedCompletion direction 0 model.currentSlideIndex
-                , slideSection easedCompletion direction newSlideStartingOffset newIndex
+                [ slideSection easedCompletion direction 0 outgoingSlideIndex
+                , slideSection easedCompletion direction newSlideStartingOffset model.currentSlideIndex
                 ]
 
 
