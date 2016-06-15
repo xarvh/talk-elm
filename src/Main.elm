@@ -2,7 +2,7 @@ import Slides exposing (md)
 
 
 
-main = Slides.program
+main = Slides.app
 
 
     [ md

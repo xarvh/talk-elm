@@ -14,6 +14,7 @@ import Html.Attributes exposing (class, style)
 import Html.App as App
 import Keyboard
 import Markdown exposing (defaultOptions)
+import Mouse
 import String
 import Task
 import Window
@@ -222,12 +223,16 @@ keyPressDispatcher keyCodeMap keyCode =
         x :: xs -> if List.member keyCode x.keyCodes then x.message else keyPressDispatcher xs keyCode
         _ -> Noop
 
+mouseClickDispatcher position =
+    Next
+
 
 -- TODO: add touch nav
 subscriptions model =
     Sub.batch
     -- TODO: switch to Keyboard.presses once https://github.com/elm-lang/keyboard/issues/3 is fixed
     [ Keyboard.ups (keyPressDispatcher keyCodesToMessage)
+    , Mouse.clicks mouseClickDispatcher
     , Window.resizes WindowResizes
     ]
 
