@@ -10,6 +10,7 @@ module Slides exposing
 
 import AnimationFrame
 import Array exposing (Array)
+import Ease
 import Html exposing (..)
 import Html.Attributes exposing (class, style)
 import Html.App as App
@@ -35,8 +36,13 @@ slidePixelSize =
     , width = 960
     }
 
+
+easingFunction =
+    Ease.inOutBounce
+
+
 animationDuration =
-    200 * Time.millisecond
+    2000 * Time.millisecond
 
 keyCodesToMessage =
     [   { message = First
@@ -233,9 +239,11 @@ slideView model =
                 -- moving backwards, slides will translate rightwards
                 direction = if newIndex > model.currentSlideIndex then -1 else 1
                 newSlideStartingOffset = -100 * direction
+
+                easedCompletion = easingFunction completion
             in
-                [ slideSection completion direction 0 model.currentSlideIndex
-                , slideSection completion direction newSlideStartingOffset newIndex
+                [ slideSection easedCompletion direction 0 model.currentSlideIndex
+                , slideSection easedCompletion direction newSlideStartingOffset newIndex
                 ]
 
 
