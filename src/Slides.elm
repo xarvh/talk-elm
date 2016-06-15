@@ -37,7 +37,7 @@ slidePixelSize =
     }
 
 animationDuration =
-    3000 * Time.millisecond
+    1000 * Time.millisecond
 
 keyCodesToMessage =
     [   { message = First
@@ -133,9 +133,7 @@ type alias Model =
 md : String -> Slide
 md markdownContent =
     { content =
-        section
-            []
-            [ Markdown.toHtmlWith markdownOptions [] (unindent markdownContent) ]
+        Markdown.toHtmlWith markdownOptions [] (unindent markdownContent)
     }
 
 
@@ -227,7 +225,12 @@ currentSlide model =
 
 view : Model -> Html Message
 view model =
-    div
+    let
+        completion = case model.animationStatus of
+            Idle -> 0
+            Transitioning newIndex completion -> completion
+
+    in div
         [ class "slide"
         , style
             [   ("position", "relative")
@@ -250,7 +253,12 @@ view model =
                 , ("position", "absolute")
                 ]
             ]
-            [ (currentSlide model).content ]
+            [ section
+                [ style
+                    [ ("transform", "translate(-" ++ toString (completion * 100) ++ "%)") ]
+                ]
+                [ (currentSlide model).content ]
+            ]
 
         , text <| case model.animationStatus of
             Idle -> "idle"

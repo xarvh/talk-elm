@@ -18,6 +18,7 @@ body {
 
 .slides {
     text-align: center;
+    overflow: hidden;
 }
 
 
