@@ -163,17 +163,16 @@ windowResize m size =
 
 
 animate m deltaTime =
-    if oldModel.pause then noCmd oldModel else
-    case oldModel.animationStatus of
-        Idle -> noCmd oldModel
+    if m.pause then m else
+    case m.animationStatus of
+        Idle -> m
         Transitioning endSlideIndex completion ->
             let
                 newCompletion = completion + deltaTime / animationDuration
             in
-                noCmd <|
-                    if newCompletion >= 1
-                    then { oldModel | currentSlideIndex = endSlideIndex, animationStatus = Idle }
-                    else { oldModel | animationStatus = Transitioning endSlideIndex newCompletion }
+                if newCompletion >= 1
+                then { m | currentSlideIndex = endSlideIndex, animationStatus = Idle }
+                else { m | animationStatus = Transitioning endSlideIndex newCompletion }
 
 
 update : Message -> Model -> (Model, Cmd Message)
@@ -204,7 +203,7 @@ update message oldModel =
 
             WindowResizes size -> noCmd <| windowResize oldModel size
 
-            AnimationTick deltaTime -> animate oldModel deltaTime
+            AnimationTick deltaTime -> noCmd <| animate oldModel deltaTime
 
             Pause -> noCmd { oldModel | pause = not oldModel.pause }
 
@@ -214,7 +213,7 @@ update message oldModel =
 --
 slideView model =
     let
-        slideSection completion offset direction index =
+        slideSection completion direction offset index =
             section
                 [ style
                     [ ("position", "absolute")
@@ -224,24 +223,19 @@ slideView model =
                 [ (Maybe.withDefault (md "") <| Array.get index model.slides).content
                 ]
 
-
     in case model.animationStatus of
         Idle ->
             [ slideSection 0 0 0 model.currentSlideIndex ]
 
         Transitioning newIndex completion ->
-            if newIndex > model.currentSlideIndex
-
-            then
-            -- moving forward, slides will translate leftwards
-                [ slideSection completion 0 -1 model.currentSlideIndex
-                , slideSection completion 100 -1 newIndex
-                ]
-
-            else
-            -- moving backwards, slides will translate rightwards
-                [ slideSection completion 0 1 model.currentSlideIndex
-                , slideSection completion -100 1 newIndex
+            let
+                -- moving forward, slides will translate leftwards
+                -- moving backwards, slides will translate rightwards
+                direction = if newIndex > model.currentSlideIndex then -1 else 1
+                newSlideStartingOffset = -100 * direction
+            in
+                [ slideSection completion direction 0 model.currentSlideIndex
+                , slideSection completion direction newSlideStartingOffset newIndex
                 ]
 
 
