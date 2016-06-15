@@ -7,7 +7,7 @@ main = Slides.app
 
     [ md
         """
-        ### aaaaaaaaa
+        ### 1 aaaaaaaaa
         loool lol
 
         ### Elm: making functional programming accessible ###
@@ -19,7 +19,7 @@ main = Slides.app
 
     , md """
 
-        # Easy app setup
+        # 2 Easy app setup
 
         ```bash
            $ elm-package install --yes elm-lang/html
@@ -28,4 +28,12 @@ main = Slides.app
 
         """
 
+
+    , md """
+
+        # 3 Stuff
+
+        stuffity stuff!
+
+        """
     ]

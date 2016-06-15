@@ -23,7 +23,6 @@ import Window
 
 
 
-
 -- TODO: move these in model.config or something
 markdownOptions =
     { defaultOptions
@@ -37,7 +36,7 @@ slidePixelSize =
     }
 
 animationDuration =
-    1000 * Time.millisecond
+    200 * Time.millisecond
 
 keyCodesToMessage =
     [   { message = First
@@ -52,10 +51,10 @@ keyCodesToMessage =
     ,   { message = Prev
         , keyCodes = [8, 37, 72, 65] -- Backspace, Arrow Left, h, a
         }
+    ,   { message = Pause
+        , keyCodes = [80]
+        }
     ]
-
-
-
 
 
 
@@ -104,6 +103,8 @@ type Message
 
     | WindowResizes Window.Size
 
+    | Pause
+
 
 type AnimationStatus
     = Idle
@@ -120,6 +121,7 @@ type alias Model =
     , currentSlideIndex : Int
     , animationStatus : AnimationStatus
     , scale : Float
+    , pause : Bool
     }
 
 
@@ -127,9 +129,6 @@ type alias Model =
 --
 -- Markdown slide constructor
 --
-
-
-
 md : String -> Slide
 md markdownContent =
     { content =
@@ -144,13 +143,10 @@ md markdownContent =
 init : List Slide -> (Model, Cmd Message)
 init slides =
     let
-        model = Model (Array.fromList slides) 0 Idle 1.0
+        model = Model (Array.fromList slides) 0 Idle 1.0 False
         cmd = Task.perform (\_ -> Noop) WindowResizes Window.size
     in
         (model, cmd)
-
-
-
 
 
 
@@ -166,11 +162,18 @@ windowResize m size =
         { m | scale = scale }
 
 
-
-
-
-
-
+animate m deltaTime =
+    if oldModel.pause then noCmd oldModel else
+    case oldModel.animationStatus of
+        Idle -> noCmd oldModel
+        Transitioning endSlideIndex completion ->
+            let
+                newCompletion = completion + deltaTime / animationDuration
+            in
+                noCmd <|
+                    if newCompletion >= 1
+                    then { oldModel | currentSlideIndex = endSlideIndex, animationStatus = Idle }
+                    else { oldModel | animationStatus = Transitioning endSlideIndex newCompletion }
 
 
 update : Message -> Model -> (Model, Cmd Message)
@@ -190,7 +193,6 @@ update message oldModel =
                     then oldModel
                     else newModel
 
-
     in
         case message of
             Noop -> noCmd oldModel
@@ -202,49 +204,45 @@ update message oldModel =
 
             WindowResizes size -> noCmd <| windowResize oldModel size
 
-            AnimationTick deltaTime ->
-                case oldModel.animationStatus of
-                    Idle -> noCmd oldModel
-                    Transitioning endSlideIndex completion ->
-                        let
-                            newCompletion = completion + deltaTime / animationDuration
-                        in
-                            noCmd <|
-                                if newCompletion >= 1
-                                then { oldModel | currentSlideIndex = endSlideIndex, animationStatus = Idle }
-                                else { oldModel | animationStatus = Transitioning endSlideIndex newCompletion }
+            AnimationTick deltaTime -> animate oldModel deltaTime
 
+            Pause -> noCmd { oldModel | pause = not oldModel.pause }
 
 
 --
 -- View
 --
-currentSlide model =
-    Maybe.withDefault (md "") <| Array.get model.currentSlideIndex model.slides
-
-
-
 slideView model =
-    case model.animationStatus of
-        Idle ->
-            [ section
-                []
-                [ (currentSlide model).content
+    let
+        slideSection completion offset direction index =
+            section
+                [ style
+                    [ ("position", "absolute")
+                    , ("transform", "translate(" ++ toString (offset + completion * direction * 100) ++ "%)")
+                    ]
                 ]
-            ]
+                [ (Maybe.withDefault (md "") <| Array.get index model.slides).content
+                ]
+
+
+    in case model.animationStatus of
+        Idle ->
+            [ slideSection 0 0 0 model.currentSlideIndex ]
 
         Transitioning newIndex completion ->
-            let
-                direction = if newIndex > model.currentSlideIndex then -1 else 1
-            in
-                [ section
-                    [ style
-                        [ ("transform", "translate(" ++ toString (completion * direction * 100) ++ "%)") ]
-                    ]
-                    [ (currentSlide model).content ]
+            if newIndex > model.currentSlideIndex
+
+            then
+            -- moving forward, slides will translate leftwards
+                [ slideSection completion 0 -1 model.currentSlideIndex
+                , slideSection completion 100 -1 newIndex
                 ]
 
-
+            else
+            -- moving backwards, slides will translate rightwards
+                [ slideSection completion 0 1 model.currentSlideIndex
+                , slideSection completion -100 1 newIndex
+                ]
 
 
 
@@ -289,7 +287,7 @@ view model =
 keyPressDispatcher keyCodeMap keyCode =
     case keyCodeMap of
         x :: xs -> if List.member keyCode x.keyCodes then x.message else keyPressDispatcher xs keyCode
-        _ -> Noop
+        _ -> let x = Debug.log "aa" keyCode in Noop
 
 
 mouseClickDispatcher position =
