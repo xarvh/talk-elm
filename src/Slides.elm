@@ -223,14 +223,34 @@ currentSlide model =
     Maybe.withDefault (md "") <| Array.get model.currentSlideIndex model.slides
 
 
+
+slideView model =
+    case model.animationStatus of
+        Idle ->
+            [ section
+                []
+                [ (currentSlide model).content
+                ]
+            ]
+
+        Transitioning newIndex completion ->
+            let
+                direction = if newIndex > model.currentSlideIndex then -1 else 1
+            in
+                [ section
+                    [ style
+                        [ ("transform", "translate(" ++ toString (completion * direction * 100) ++ "%)") ]
+                    ]
+                    [ (currentSlide model).content ]
+                ]
+
+
+
+
+
 view : Model -> Html Message
 view model =
-    let
-        completion = case model.animationStatus of
-            Idle -> 0
-            Transitioning newIndex completion -> completion
-
-    in div
+    div
         [ class "slide"
         , style
             [   ("position", "relative")
@@ -253,12 +273,7 @@ view model =
                 , ("position", "absolute")
                 ]
             ]
-            [ section
-                [ style
-                    [ ("transform", "translate(-" ++ toString (completion * 100) ++ "%)") ]
-                ]
-                [ (currentSlide model).content ]
-            ]
+            (slideView model)
 
         , text <| case model.animationStatus of
             Idle -> "idle"
