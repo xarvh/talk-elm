@@ -38,15 +38,14 @@ slidePixelSize =
 
 
 easingFunction =
-    Ease.inOutBounce
+    Ease.outCubic
 
 
-animationDuration =
+singleSlideAnimationDuration =
     1000 * Time.millisecond
 
--- This is used to multiply the velocity when the animation passes across more than one slide
-bigLeapVelocityMultiplier =
-    4
+multipleSlidesAnimationDuration =
+    500 * Time.millisecond
 
 keyCodesToMessage =
     [   { message = First
@@ -191,10 +190,10 @@ newPosition m deltaTime =
 
             -- velocity is a funciton of the absolute distance
             velocity d =
-                if d > 1 then bigLeapVelocityMultiplier * d
-                else 1
+                if d > 1 then d / multipleSlidesAnimationDuration
+                else 1 / singleSlideAnimationDuration
 
-            deltaPosition = deltaTime * direction * velocity absDistance / animationDuration
+            deltaPosition = deltaTime * direction * velocity absDistance
 
             newUnclampedPosition = m.currentPosition + deltaPosition
 
