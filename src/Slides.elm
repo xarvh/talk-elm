@@ -4,6 +4,9 @@ module Slides exposing
     , program
     , app
 
+    , Options
+    , defaultOptions
+
     , md
     )
 
@@ -15,7 +18,7 @@ import Html exposing (..)
 import Html.Attributes exposing (class, style)
 import Html.App as App
 import Keyboard
-import Markdown exposing (defaultOptions)
+import Markdown
 import Mouse
 import String
 import Task
@@ -23,47 +26,49 @@ import Time
 import Window
 
 
+markdownDefaultOptions = Markdown.defaultOptions
 
--- TODO: move these in model.config or something
-markdownOptions =
-    { defaultOptions
-    | githubFlavored = Just { tables = True, breaks = False }
-    , smartypants = True
+
+defaultOptions : Options
+defaultOptions =
+    { markdown =
+        { markdownDefaultOptions
+        | githubFlavored = Just { tables = True, breaks = False }
+        , smartypants = True
+        }
+
+    , slidePixelSize =
+        { height = 700
+        , width = 960
+        }
+
+    , easingFunction =
+        Ease.outCubic
+
+    , singleSlideAnimationDuration =
+        1000 * Time.millisecond
+
+    , multipleSlidesAnimationDuration =
+        500 * Time.millisecond
+
+    , keyCodesToMessage =
+        [   { message = First
+            , keyCodes = [36] -- Home
+            }
+        ,   { message = Last
+            , keyCodes = [35] -- End
+            }
+        ,   { message = Next
+            , keyCodes = [13, 32, 39, 76, 68] -- Enter, Spacebar, Arrow Right, l, d
+            }
+        ,   { message = Prev
+            , keyCodes = [8, 37, 72, 65] -- Backspace, Arrow Left, h, a
+            }
+        ,   { message = Pause
+            , keyCodes = [80]
+            }
+        ]
     }
-
-slidePixelSize =
-    { height = 700
-    , width = 960
-    }
-
-
-easingFunction =
-    Ease.outCubic
-
-
-singleSlideAnimationDuration =
-    1000 * Time.millisecond
-
-multipleSlidesAnimationDuration =
-    500 * Time.millisecond
-
-keyCodesToMessage =
-    [   { message = First
-        , keyCodes = [36] -- Home
-        }
-    ,   { message = Last
-        , keyCodes = [35] -- End
-        }
-    ,   { message = Next
-        , keyCodes = [13, 32, 39, 76, 68] -- Enter, Spacebar, Arrow Right, l, d
-        }
-    ,   { message = Prev
-        , keyCodes = [8, 37, 72, 65] -- Backspace, Arrow Left, h, a
-        }
-    ,   { message = Pause
-        , keyCodes = [80]
-        }
-    ]
 
 
 
@@ -100,6 +105,49 @@ unindent multilineString =
 --
 -- Model
 --
+
+type alias Options =
+    { markdown : Markdown.Options
+    , slidePixelSize : { height : Int, width : Int }
+    , easingFunction :  Float -> Float
+    , singleSlideAnimationDuration : Time.Time
+    , multipleSlidesAnimationDuration : Time.Time
+    , keyCodesToMessage : List { message : Message, keyCodes : List Int }
+    }
+
+
+type alias Slide =
+    { content : Options -> Html Message
+    }
+
+
+type alias Model =
+    { slides : Array Slide
+    , options : Options
+
+    , scale : Float
+
+    , pause : Bool
+    , targetPosition : Int
+    , currentPosition : Float
+    }
+
+
+
+--
+-- Markdown slide constructor
+--
+md : String -> Slide
+md markdownContent =
+    { content = \options ->
+        Markdown.toHtmlWith options.markdown [] (unindent markdownContent)
+    }
+
+
+
+--
+-- Init
+--
 type Message
     = Noop
 
@@ -115,41 +163,12 @@ type Message
     | Pause
 
 
-type alias Slide =
-    { content : Html Message
-    }
-
-
-type alias Model =
-    { slides : Array Slide
-    , scale : Float
-    , pause : Bool
-
-    , targetPosition : Int
-    , currentPosition : Float
-    }
-
-
-
---
--- Markdown slide constructor
---
-md : String -> Slide
-md markdownContent =
-    { content =
-        Markdown.toHtmlWith markdownOptions [] (unindent markdownContent)
-    }
-
-
-
---
--- Init
---
-init : List Slide -> (Model, Cmd Message)
-init slides =
+init : Options -> List Slide -> (Model, Cmd Message)
+init options slides =
     let
         model =
             { slides = (Array.fromList slides)
+            , options = options
             , scale = 1.0
             , pause = False
             , targetPosition = 0
@@ -168,11 +187,10 @@ init slides =
 windowResize m size =
     let
         scale = min
-            (toFloat size.width / slidePixelSize.width)
-            (toFloat size.height / slidePixelSize.height)
+            (toFloat size.width / toFloat m.options.slidePixelSize.width)
+            (toFloat size.height / toFloat m.options.slidePixelSize.height)
     in
         { m | scale = scale }
-
 
 
 newPosition m deltaTime =
@@ -190,8 +208,8 @@ newPosition m deltaTime =
 
             -- velocity is a funciton of the absolute distance
             velocity d =
-                if d > 1 then d / multipleSlidesAnimationDuration
-                else 1 / singleSlideAnimationDuration
+                if d > 1 then d / m.options.multipleSlidesAnimationDuration
+                else 1 / m.options.singleSlideAnimationDuration
 
             deltaPosition = deltaTime * direction * velocity absDistance
 
@@ -202,10 +220,8 @@ newPosition m deltaTime =
             newUnclampedPosition `limitTo` toFloat m.targetPosition
 
 
-
 selectSlide m unclampedTargetPosition =
     { m | targetPosition = clamp 0 (Array.length m.slides - 1) unclampedTargetPosition }
-
 
 
 update : Message -> Model -> (Model, Cmd Message)
@@ -240,8 +256,8 @@ slideView model =
         easing d =
             if abs distance > 1 then d
             else if distance >= 0
-                then easingFunction d
-                else 1 - easingFunction (1 - d)
+                then model.options.easingFunction d
+                else 1 - model.options.easingFunction (1 - d)
 
         leftSlideIndex = floor model.currentPosition
         rightSlideIndex = leftSlideIndex + 1
@@ -254,13 +270,12 @@ slideView model =
                     , ("transform", "translate(" ++ toString (offset - traslation * 100) ++ "%)")
                     ]
                 ]
-                [ (Maybe.withDefault (md "") <| Array.get index model.slides).content
+                [ (Maybe.withDefault (md "") <| Array.get index model.slides).content model.options
                 ]
     in
         [ slideSection 0 leftSlideIndex
         , slideSection 100 rightSlideIndex
         ]
-
 
 
 view : Model -> Html Message
@@ -277,8 +292,8 @@ view model =
         [ div
             [ class "slides"
             , style
-                [ ("width", toString slidePixelSize.width ++ "px")
-                , ("height", toString slidePixelSize.height ++ "px")
+                [ ("width", toString model.options.slidePixelSize.width ++ "px")
+                , ("height", toString model.options.slidePixelSize.height ++ "px")
                 , ("transform", "translate(-50%, -50%) scale(" ++ toString model.scale ++ ")")
 
                 , ("left", "50%")
@@ -291,7 +306,7 @@ view model =
             (slideView model)
 
 --         , text <| toString model.currentPosition
-        , text <| toString (toFloat model.targetPosition - model.currentPosition)
+--         , text <| toString (toFloat model.targetPosition - model.currentPosition)
         ]
 
 
@@ -302,7 +317,7 @@ view model =
 keyPressDispatcher keyCodeMap keyCode =
     case keyCodeMap of
         x :: xs -> if List.member keyCode x.keyCodes then x.message else keyPressDispatcher xs keyCode
-        _ -> let x = Debug.log "aa" keyCode in Noop
+        _ -> Noop --let x = Debug.log "keyCode" keyCode in Noop
 
 
 mouseClickDispatcher position =
@@ -313,24 +328,25 @@ mouseClickDispatcher position =
 subscriptions model =
     Sub.batch
     -- TODO: switch to Keyboard.presses once https://github.com/elm-lang/keyboard/issues/3 is fixed
-    [ Keyboard.ups (keyPressDispatcher keyCodesToMessage)
+    [ Keyboard.ups (keyPressDispatcher model.options.keyCodesToMessage)
     , Mouse.clicks mouseClickDispatcher
     , Window.resizes WindowResizes
     , AnimationFrame.diffs AnimationTick
     ]
 
 
+
 --
 -- `main` helper
 --
-program slides =
-    { init = init slides
+program options slides =
+    { init = init options slides
     , update = update
     , view = view
     , subscriptions = subscriptions
     }
 
-app : List Slide -> Program Never
-app slides =
-    App.program <| program slides
+app : Options -> List Slide -> Program Never
+app options slides =
+    App.program <| program options slides
 

@@ -4,6 +4,7 @@ import Slides exposing (md)
 
 main = Slides.app
 
+    Slides.defaultOptions
 
     [ md
         """
