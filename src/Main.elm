@@ -1,68 +1,126 @@
 import Slides exposing (md)
 
 
-
 main = Slides.app
 
     Slides.defaultOptions
 
     [ md
         """
-        ### 1 aaaaaaaaa
-        loool lol
+        # Elm
 
-        ### Elm: making functional programming accessible ###
+        _Or: making functional programming accessible_
 
-        lorem ipsum meeehh!
+        by Francesco Orsenigo @xarvh
 
         """
 
 
     , md """
 
-        # 2 Easy app setup
+        # Easy app setup
 
         ```bash
-           $ elm-package install --yes elm-lang/html
+            $ elm-package install elm-lang/html
         ```
-        And you are ready to go
+
+        And we're ready to go!
 
         """
 
 
     , md """
 
-        # 3 Stuff
+        # Single-step build
 
-        stuffity stuff!
+        ```bash
+            $ elm-make HelloWorld.elm
+        ```
+
+        ➡
+
+        `index.html`
+        """
+
+
+    , md """
+        # Trivial to use a custom entry point
+
+        ```bash
+            $ elm-make HelloWorld.elm --output HelloWorld.js
+        ```
+
+        ```html
+        <-- index.html -->
+        <head>
+            <script type="text/javascript" src="HelloWorld.js"></script>
+        </head>
+        <body>
+            <script type="text/javascript">Elm.Main.fullscreen()</script>
+        </body>
+        ```
+        """
+
+
+    , md """
+        # Friendly, descriptive error messages
+
+        TODO: example
 
         """
+
+
     , md """
-
-        # 4 Stuff
-
-        stuffity stuff!
+        # Descriptive names
 
         """
+
+
     , md """
+        # Accessible docs
 
-        # 5 Stuff
+        elm-package will refuse to publish enything without docs!
+        """
 
-        stuffity stuff!
+
+    , md """
+        # (Some) batteries included
+
+            * Graphics
+            * Http
+            * Websockets
 
         """
+
+
     , md """
+        # Enforced semver
 
-        # 6 Stuff
+        ```bash
+        $ elm-package diff evancz/elm-html 1.0.0 2.0.0
+        Comparing evancz/elm-html 1.0.0 to 2.0.0...
+        This is a MAJOR change.
 
-        stuffity stuff!
+        ------ Changes to module Html.Attributes - MAJOR ------
 
+            Added:
+                attribute : String -> String -> Attribute
+                classList : List (String, Bool) -> Attribute
+                minlength : Int -> Attribute
+
+            Changed:
+              - colspan : String -> Attribute
+              + colspan : Int -> Attribute
+
+              - rowspan : String -> Attribute
+              + rowspan : Int -> Attribute
+        ```
         """
+
+
     , md """
 
-        # 7 Stuff
-
-        stuffity stuff!
+        @xarvh
 
         """
     ]
