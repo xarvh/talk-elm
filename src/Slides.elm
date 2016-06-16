@@ -38,11 +38,15 @@ slidePixelSize =
 
 
 easingFunction =
-    Ease.outSine
+    Ease.inOutBounce
 
 
 animationDuration =
     1000 * Time.millisecond
+
+-- This is used to multiply the velocity when the animation passes across more than one slide
+bigLeapVelocityMultiplier =
+    4
 
 keyCodesToMessage =
     [   { message = First
@@ -112,11 +116,6 @@ type Message
     | Pause
 
 
-type AnimationStatus
-    = Idle
-    | Transitioning Int Float
-
-
 type alias Slide =
     { content : Html Message
     }
@@ -124,10 +123,11 @@ type alias Slide =
 
 type alias Model =
     { slides : Array Slide
-    , currentSlideIndex : Int
-    , animationStatus : AnimationStatus
     , scale : Float
     , pause : Bool
+
+    , targetPosition : Int
+    , currentPosition : Float
     }
 
 
@@ -149,7 +149,14 @@ md markdownContent =
 init : List Slide -> (Model, Cmd Message)
 init slides =
     let
-        model = Model (Array.fromList slides) 0 Idle 1.0 False
+        model =
+            { slides = (Array.fromList slides)
+            , scale = 1.0
+            , pause = False
+            , targetPosition = 0
+            , currentPosition = 0.0
+            }
+
         cmd = Task.perform (\_ -> Noop) WindowResizes Window.size
     in
         (model, cmd)
@@ -168,61 +175,57 @@ windowResize m size =
         { m | scale = scale }
 
 
-animate m deltaTime =
-    if m.pause then m else
-    case m.animationStatus of
-        Idle -> m
-        Transitioning outgoingSlideIndex completion ->
-            let
-                newCompletion = completion + deltaTime / animationDuration
-            in
-                if newCompletion >= 1
-                then { m | animationStatus = Idle }
-                else { m | animationStatus = Transitioning outgoingSlideIndex newCompletion }
+
+newPosition m deltaTime =
+    if m.pause
+    then m.currentPosition
+    else
+        let
+            distance = toFloat m.targetPosition - m.currentPosition
+            absDistance = abs distance
+
+            (direction, limitTo) =
+                if distance > 0
+                then (1, min)
+                else (-1, max)
+
+            -- velocity is a funciton of the absolute distance
+            velocity d =
+                if d > 1 then bigLeapVelocityMultiplier * d
+                else 1
+
+            deltaPosition = deltaTime * direction * velocity absDistance / animationDuration
+
+            newUnclampedPosition = m.currentPosition + deltaPosition
+
+        in
+            -- either min or max, depending on the direction we're going
+            newUnclampedPosition `limitTo` toFloat m.targetPosition
 
 
 
-selectSlide oldModel unclampedNewIndex =
-    let
-        newIndex =
-            clamp 0 (Array.length oldModel.slides - 1) unclampedNewIndex
-
-        comp = case oldModel.animationStatus of
-            Idle -> 0
-            Transitioning oldSlideIndex completion -> completion / 2
-    in
-        if newIndex == oldModel.currentSlideIndex
-        then oldModel
-        else
-            { oldModel
-            | animationStatus = Transitioning oldModel.currentSlideIndex comp
-            , currentSlideIndex = newIndex
-            }
-
-
+selectSlide m unclampedTargetPosition =
+    { m | targetPosition = clamp 0 (Array.length m.slides - 1) unclampedTargetPosition }
 
 
 
 update : Message -> Model -> (Model, Cmd Message)
 update message oldModel =
     let
-        noCmd m =
-            (m, Cmd.none)
-
+        noCmd m = (m, Cmd.none)
         select = selectSlide oldModel
-
     in
         noCmd <| case message of
             Noop -> oldModel
 
             First -> select 0
             Last -> select 99999
-            Prev -> select <| oldModel.currentSlideIndex - 1
-            Next -> select <| oldModel.currentSlideIndex + 1
+            Prev -> select <| oldModel.targetPosition - 1
+            Next -> select <| oldModel.targetPosition + 1
 
             WindowResizes size -> windowResize oldModel size
 
-            AnimationTick deltaTime -> animate oldModel deltaTime
+            AnimationTick deltaTime -> { oldModel | currentPosition = newPosition oldModel deltaTime }
 
             Pause -> { oldModel | pause = not oldModel.pause }
 
@@ -232,32 +235,28 @@ update message oldModel =
 --
 slideView model =
     let
-        slideSection completion direction offset index =
+        leftSlideIndex = floor model.currentPosition
+        rightSlideIndex = leftSlideIndex + 1
+
+        uneasedTranslation = model.currentPosition - toFloat leftSlideIndex
+        easedTranslation =
+            if (abs <| model.currentPosition - toFloat model.targetPosition) > 1
+            then uneasedTranslation
+            else easingFunction uneasedTranslation
+
+        slideSection offset index =
             section
                 [ style
                     [ ("position", "absolute")
-                    , ("transform", "translate(" ++ toString (offset + completion * direction * 100) ++ "%)")
+                    , ("transform", "translate(" ++ toString (offset - easedTranslation * 100) ++ "%)")
                     ]
                 ]
                 [ (Maybe.withDefault (md "") <| Array.get index model.slides).content
                 ]
-
-    in case model.animationStatus of
-        Idle ->
-            [ slideSection 0 0 0 model.currentSlideIndex ]
-
-        Transitioning outgoingSlideIndex completion ->
-            let
-                -- moving forward, slides will translate leftwards
-                -- moving backwards, slides will translate rightwards
-                direction = if outgoingSlideIndex < model.currentSlideIndex then -1 else 1
-                newSlideStartingOffset = -100 * direction
-
-                easedCompletion = easingFunction completion
-            in
-                [ slideSection easedCompletion direction 0 outgoingSlideIndex
-                , slideSection easedCompletion direction newSlideStartingOffset model.currentSlideIndex
-                ]
+    in
+        [ slideSection 0 leftSlideIndex
+        , slideSection 100 rightSlideIndex
+        ]
 
 
 
@@ -288,10 +287,8 @@ view model =
             ]
             (slideView model)
 
-        , text <| case model.animationStatus of
-            Idle -> "idle"
-            Transitioning direction completion ->
-                toString direction ++ "  " ++ toString completion
+--         , text <| toString model.currentPosition
+        , text <| toString (toFloat model.targetPosition - model.currentPosition)
         ]
 
 
