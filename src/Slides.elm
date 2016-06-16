@@ -234,20 +234,24 @@ update message oldModel =
 --
 slideView model =
     let
+        distance =
+            toFloat model.targetPosition - model.currentPosition
+
+        easing d =
+            if abs distance > 1 then d
+            else if distance >= 0
+                then easingFunction d
+                else 1 - easingFunction (1 - d)
+
         leftSlideIndex = floor model.currentPosition
         rightSlideIndex = leftSlideIndex + 1
-
-        uneasedTranslation = model.currentPosition - toFloat leftSlideIndex
-        easedTranslation =
-            if (abs <| model.currentPosition - toFloat model.targetPosition) > 1
-            then uneasedTranslation
-            else easingFunction uneasedTranslation
+        traslation = easing <| model.currentPosition - toFloat leftSlideIndex
 
         slideSection offset index =
             section
                 [ style
                     [ ("position", "absolute")
-                    , ("transform", "translate(" ++ toString (offset - easedTranslation * 100) ++ "%)")
+                    , ("transform", "translate(" ++ toString (offset - traslation * 100) ++ "%)")
                     ]
                 ]
                 [ (Maybe.withDefault (md "") <| Array.get index model.slides).content
