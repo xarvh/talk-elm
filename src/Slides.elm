@@ -20,6 +20,7 @@ import Html.App as App
 import Keyboard
 import Markdown
 import Mouse
+import Navigation
 import String
 import Task
 import Time
@@ -62,7 +63,7 @@ defaultOptions =
             , keyCodes = [13, 32, 39, 76, 68] -- Enter, Spacebar, Arrow Right, l, d
             }
         ,   { message = Prev
-            , keyCodes = [8, 37, 72, 65] -- Backspace, Arrow Left, h, a
+            , keyCodes = [37, 72, 65] -- Arrow Left, h, a
             }
         ,   { message = Pause
             , keyCodes = [80]
@@ -146,44 +147,9 @@ md markdownContent =
 
 
 --
--- Init
+-- Init, Update
 --
-type Message
-    = Noop
-
-    | First
-    | Last
-    | Next
-    | Prev
-
-    | AnimationTick Time.Time
-
-    | WindowResizes Window.Size
-
-    | Pause
-
-
-init : Options -> List Slide -> (Model, Cmd Message)
-init options slides =
-    let
-        model =
-            { slides = (Array.fromList slides)
-            , options = options
-            , scale = 1.0
-            , pause = False
-            , targetPosition = 0
-            , currentPosition = 0.0
-            }
-
-        cmd = Task.perform (\_ -> Noop) WindowResizes Window.size
-    in
-        (model, cmd)
-
-
-
---
--- Update
---
+windowResize : Model -> Window.Size -> Model
 windowResize m size =
     let
         scale = min
@@ -191,6 +157,16 @@ windowResize m size =
             (toFloat size.height / toFloat m.options.slidePixelSize.height)
     in
         { m | scale = scale }
+
+
+locationToSlideIndex : Navigation.Location -> Maybe Int
+locationToSlideIndex location =
+    String.dropLeft 1 location.hash |> String.toInt |> Result.toMaybe
+
+
+modelToHashUrl : Model -> String
+modelToHashUrl model =
+    "#" ++ toString model.targetPosition
 
 
 newPosition m deltaTime =
@@ -220,8 +196,55 @@ newPosition m deltaTime =
             newUnclampedPosition `limitTo` toFloat m.targetPosition
 
 
-selectSlide m unclampedTargetPosition =
-    { m | targetPosition = clamp 0 (Array.length m.slides - 1) unclampedTargetPosition }
+clampSlideIndex : Model -> Int -> Int
+clampSlideIndex model unclampedIndex =
+    clamp 0 (Array.length model.slides - 1) unclampedIndex
+
+
+selectSlide : Model -> Int -> (Model, Cmd Message)
+selectSlide oldModel unclampedTargetPosition =
+    let
+        newTargetIndex = clampSlideIndex oldModel unclampedTargetPosition
+        newModel = { oldModel | targetPosition = newTargetIndex }
+
+        cmd =
+            if newModel.targetPosition == oldModel.targetPosition
+            then Cmd.none
+            else Navigation.newUrl <| modelToHashUrl newModel
+    in
+        (newModel, cmd)
+
+
+type Message
+    = Noop
+
+    | First
+    | Last
+    | Next
+    | Prev
+
+    | AnimationTick Time.Time
+    | Pause
+
+    | WindowResizes Window.Size
+
+
+
+init : Options -> List Slide -> Navigation.Location -> (Model, Cmd Message)
+init options slides location =
+    let
+        (model, urlCmd) = urlUpdate location
+            { slides = (Array.fromList slides)
+            , options = options
+            , scale = 1.0
+            , pause = False
+            , targetPosition = 0
+            , currentPosition = 0.0
+            }
+
+        cmdWindow = Task.perform (\_ -> Noop) WindowResizes Window.size
+    in
+        (model, Cmd.batch [cmdWindow, urlCmd])
 
 
 update : Message -> Model -> (Model, Cmd Message)
@@ -230,19 +253,39 @@ update message oldModel =
         noCmd m = (m, Cmd.none)
         select = selectSlide oldModel
     in
-        noCmd <| case message of
-            Noop -> oldModel
+        case message of
+            Noop -> noCmd oldModel
 
             First -> select 0
             Last -> select 99999
             Prev -> select <| oldModel.targetPosition - 1
             Next -> select <| oldModel.targetPosition + 1
 
-            WindowResizes size -> windowResize oldModel size
+            WindowResizes size -> noCmd <| windowResize oldModel size
 
-            AnimationTick deltaTime -> { oldModel | currentPosition = newPosition oldModel deltaTime }
+            AnimationTick deltaTime -> noCmd { oldModel | currentPosition = newPosition oldModel deltaTime }
 
-            Pause -> { oldModel | pause = not oldModel.pause }
+            Pause -> noCmd { oldModel | pause = not oldModel.pause }
+
+
+urlUpdate : Navigation.Location -> Model -> (Model, Cmd Message)
+urlUpdate location model =
+    case locationToSlideIndex location of
+        -- User entered an invalid has url
+        Nothing ->
+            (model, Navigation.modifyUrl <| modelToHashUrl model)
+
+        Just index ->
+            let
+                newIndex =
+                    clampSlideIndex model index
+                cmd =
+                    if newIndex == index
+                    then Cmd.none
+                    else Navigation.newUrl <| modelToHashUrl model
+            in
+                ({ model | targetPosition = newIndex}, cmd)
+
 
 
 --
@@ -342,11 +385,12 @@ subscriptions model =
 program options slides =
     { init = init options slides
     , update = update
+    , urlUpdate = urlUpdate
     , view = view
     , subscriptions = subscriptions
     }
 
 app : Options -> List Slide -> Program Never
 app options slides =
-    App.program <| program options slides
+    Navigation.program (Navigation.makeParser identity) (program options slides)
 
