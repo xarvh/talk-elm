@@ -35,6 +35,7 @@ defaultOptions =
     { markdown =
         { markdownDefaultOptions
         | githubFlavored = Just { tables = True, breaks = False }
+        , defaultHighlighting = Just "html"
         , smartypants = True
         }
 
@@ -321,6 +322,7 @@ slideView model =
             section
                 [ style
                     [ ("position", "absolute")
+                    , ("width", "100%")
                     , ("transform", "translate(" ++ toString (offset - traslation * 100) ++ "%)")
                     ]
                 ]
@@ -355,12 +357,10 @@ view model =
                 , ("bottom", "auto")
                 , ("right", "auto")
                 , ("position", "absolute")
+                , ("overflow", "hidden")
                 ]
             ]
             (slideView model)
-
---         , text <| toString model.currentPosition
---         , text <| toString (toFloat model.targetPosition - model.currentPosition)
         ]
 
 
