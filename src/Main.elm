@@ -17,6 +17,11 @@ main = Slides.app
 
 
     , md """
+        Elm is doing a few things right
+        """
+
+
+    , md """
 
         # Easy app setup
 
@@ -44,7 +49,7 @@ main = Slides.app
 
 
     , md """
-        # Trivial to use a custom entry point
+        # Easy custom entry point
 
         ```bash
             $ elm-make HelloWorld.elm --output HelloWorld.js

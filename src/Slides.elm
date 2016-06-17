@@ -229,11 +229,10 @@ type Message
     | WindowResizes Window.Size
 
 
-
 init : Options -> List Slide -> Navigation.Location -> (Model, Cmd Message)
 init options slides location =
     let
-        (model, urlCmd) = urlUpdate location
+        model0 =
             { slides = (Array.fromList slides)
             , options = options
             , scale = 1.0
@@ -242,9 +241,11 @@ init options slides location =
             , currentPosition = 0.0
             }
 
+        (model, urlCmd) = urlUpdate location model0
+
         cmdWindow = Task.perform (\_ -> Noop) WindowResizes Window.size
     in
-        (model, Cmd.batch [cmdWindow, urlCmd])
+        ({ model | currentPosition = toFloat model.targetPosition }, Cmd.batch [cmdWindow, urlCmd])
 
 
 update : Message -> Model -> (Model, Cmd Message)
