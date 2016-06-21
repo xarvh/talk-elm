@@ -44,12 +44,9 @@ defaultOptions =
         }
 
     , easingFunction =
-        Ease.outCubic
+        Ease.inOutCubic
 
     , singleSlideAnimationDuration =
-        1000 * Time.millisecond
-
-    , multipleSlidesAnimationDuration =
         500 * Time.millisecond
 
     , keyCodesToMessage =
@@ -112,7 +109,6 @@ type alias Options =
     , slidePixelSize : { height : Int, width : Int }
     , easingFunction :  Float -> Float
     , singleSlideAnimationDuration : Time.Time
-    , multipleSlidesAnimationDuration : Time.Time
     , keyCodesToMessage : List { message : Message, keyCodes : List Int }
     }
 
@@ -129,6 +125,7 @@ type alias Model =
     , scale : Float
 
     , pause : Bool
+    , initialPosition : Int
     , targetPosition : Int
     , currentPosition : Float
     }
@@ -174,6 +171,7 @@ newPosition m deltaTime =
     then m.currentPosition
     else
         let
+            totalDistance = abs <| m.initialPosition - m.targetPosition
             distance = toFloat m.targetPosition - m.currentPosition
             absDistance = abs distance
 
@@ -182,14 +180,14 @@ newPosition m deltaTime =
                 then (1, min)
                 else (-1, max)
 
-            -- velocity is a funciton of the absolute distance
-            velocity d =
-                if d > 1 then d / m.options.multipleSlidesAnimationDuration
-                else 1 / m.options.singleSlideAnimationDuration
+            velocity =
+                toFloat (max 1 totalDistance) / m.options.singleSlideAnimationDuration
 
-            deltaPosition = deltaTime * direction * velocity absDistance
+            deltaPosition =
+                deltaTime * direction * velocity
 
-            newUnclampedPosition = m.currentPosition + deltaPosition
+            newUnclampedPosition =
+                m.currentPosition + deltaPosition
 
         in
             -- either min or max, depending on the direction we're going
@@ -237,13 +235,16 @@ init options slides location =
             , options = options
             , scale = 1.0
             , pause = False
+            , initialPosition = 0
             , targetPosition = 0
             , currentPosition = 0.0
             }
 
-        (model, urlCmd) = urlUpdate location model0
+        (model, urlCmd) =
+            urlUpdate location model0
 
-        cmdWindow = Task.perform (\_ -> Noop) WindowResizes Window.size
+        cmdWindow =
+            Task.perform (\_ -> Noop) WindowResizes Window.size
     in
         ({ model | currentPosition = toFloat model.targetPosition }, Cmd.batch [cmdWindow, urlCmd])
 
@@ -264,9 +265,18 @@ update message oldModel =
 
             WindowResizes size -> noCmd <| windowResize oldModel size
 
-            AnimationTick deltaTime -> noCmd { oldModel | currentPosition = newPosition oldModel deltaTime }
+            AnimationTick deltaTime ->
+                let
+                    currentPosition = newPosition oldModel deltaTime
+                    initialPosition =
+                        if currentPosition /= toFloat oldModel.targetPosition
+                        then oldModel.initialPosition
+                        else oldModel.targetPosition
+                in
+                    noCmd { oldModel | currentPosition = currentPosition, initialPosition = initialPosition }
 
-            Pause -> noCmd { oldModel | pause = not oldModel.pause }
+            Pause ->
+                noCmd { oldModel | pause = not oldModel.pause }
 
 
 urlUpdate : Navigation.Location -> Model -> (Model, Cmd Message)
@@ -297,11 +307,11 @@ slideView model =
         distance =
             toFloat model.targetPosition - model.currentPosition
 
-        easing d =
-            if abs distance > 1 then d
+        easing =
+            if abs distance > 1 then identity
             else if distance >= 0
-                then model.options.easingFunction d
-                else 1 - model.options.easingFunction (1 - d)
+                then model.options.easingFunction
+                else Ease.flip model.options.easingFunction
 
         leftSlideIndex = floor model.currentPosition
         rightSlideIndex = leftSlideIndex + 1
