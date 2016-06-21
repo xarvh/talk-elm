@@ -4,25 +4,33 @@ html, head, body {
     height: 100%;
 }
 
+
 body {
     font-family: calibri, helvetica;
 }
 
 
-.slide {
+h1 {
+    text-align: center;
+}
 
+
+.slide {
     font-size: 38px;
     font-weight: normal;
 }
 
 
-.slides {
-    text-align: center;
-    overflow: hidden;
+section {
+    padding: 20px 0px;
 }
 
 
-.slides > section {
-    width: 100%;
-    padding: 20px 0px;
+code {
+    font-size: 21px;
+}
+
+
+pre {
+    padding: 20px;
 }

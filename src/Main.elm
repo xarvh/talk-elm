@@ -25,7 +25,7 @@ main = Slides.app
 
         # Easy app setup
 
-        ```bash
+        ```elm
             $ elm-package install elm-lang/html
         ```
 
@@ -38,7 +38,7 @@ main = Slides.app
 
         # Single-step build
 
-        ```bash
+        ```elm
             $ elm-make HelloWorld.elm
         ```
 
@@ -51,11 +51,11 @@ main = Slides.app
     , md """
         # Easy custom entry point
 
-        ```bash
-            $ elm-make HelloWorld.elm --output HelloWorld.js
+        ```elm
+        $ elm-make HelloWorld.elm --output HelloWorld.js
         ```
 
-        ```html
+        ```xml
         <-- index.html -->
         <head>
             <script type="text/javascript" src="HelloWorld.js"></script>
@@ -101,7 +101,7 @@ main = Slides.app
     , md """
         # Enforced semver
 
-        ```bash
+        ```elm
         $ elm-package diff evancz/elm-html 1.0.0 2.0.0
         Comparing evancz/elm-html 1.0.0 to 2.0.0...
         This is a MAJOR change.
