@@ -15,7 +15,7 @@ import AnimationFrame
 import Array exposing (Array)
 import Ease
 import Html exposing (..)
-import Html.Attributes exposing (class, style)
+import Html.Attributes as Attributes exposing (class, style)
 import Html.App as App
 import Keyboard
 import Markdown
@@ -50,6 +50,9 @@ defaultOptions =
     , singleSlideAnimationDuration =
         500 * Time.millisecond
 
+    , transitionStyle =
+        transitionStyleNone
+
     , keyCodesToMessage =
         [   { message = First
             , keyCodes = [36] -- Home
@@ -68,6 +71,38 @@ defaultOptions =
             }
         ]
     }
+
+
+
+--
+-- Transition Styles
+--
+swap (a, b) = (b, a)
+
+
+transitionStyleNone : TransitionStyle
+transitionStyleNone direction completion =
+        ( [("display", "none")]
+        , [("position", "absolute")]
+        )
+
+--     (if direction == Forward then identity else \(a,b) -> (b,a))
+
+
+transitionStyleSlide : TransitionStyle
+transitionStyleSlide _ completion =
+    let
+        makeStyle offset =
+            [ ("position", "absolute")
+            , ("width", "100%")
+            , ("transform", "translate(" ++ toString (offset - completion * 100) ++ "%)")
+            ]
+    in
+        (makeStyle 0, makeStyle 100)
+
+
+
+
 
 
 
@@ -104,12 +139,22 @@ unindent multilineString =
 --
 -- Model
 --
+type Direction
+    = Forward
+    | Backward
+
+type alias Style =
+    List (String, String)
+
+type alias TransitionStyle =
+    Direction -> Float -> (Style, Style)
 
 type alias Options =
     { markdown : Markdown.Options
     , slidePixelSize : { height : Int, width : Int }
     , easingFunction :  Float -> Float
     , singleSlideAnimationDuration : Time.Time
+    , transitionStyle : TransitionStyle
     , keyCodesToMessage : List { message : Message, keyCodes : List Int }
     }
 
@@ -316,29 +361,32 @@ slideView model =
 
         leftSlideIndex = floor model.currentPosition
         rightSlideIndex = leftSlideIndex + 1
-        traslation = easing <| model.currentPosition - toFloat leftSlideIndex
+        completion = easing <| model.currentPosition - toFloat leftSlideIndex
 
-        slideSection offset index =
+
+        (a, b) = model.options.transitionStyle (if distance >= 0 then Forward else Backward) completion
+
+
+        slideSection s index =
             section
-                [ style
-                    [ ("position", "absolute")
-                    , ("width", "100%")
-                    , ("transform", "translate(" ++ toString (offset - traslation * 100) ++ "%)")
-                    ]
-                ]
-                [ (Maybe.withDefault (md "") <| Array.get index model.slides).content model.options
-                ]
+                [ Attributes.style s ]
+                [ (Maybe.withDefault (md "") <| Array.get index model.slides).content model.options ]
     in
-        [ slideSection 0 leftSlideIndex
-        , slideSection 100 rightSlideIndex
-        ]
+        if distance == 0
+        then
+            [ slideSection [] leftSlideIndex
+            ]
+        else
+            [ slideSection a leftSlideIndex
+            , slideSection b rightSlideIndex
+            ]
 
 
 view : Model -> Html Message
 view model =
     div
-        [ class "slide"
-        , style
+        [ Attributes.class "slide"
+        , Attributes.style
             [   ("position", "relative")
             ,   ("width", "100%")
             ,   ("height", "100%")
@@ -346,8 +394,8 @@ view model =
             ]
         ]
         [ div
-            [ class "slides"
-            , style
+            [ Attributes.class "slides"
+            , Attributes.style
                 [ ("width", toString model.options.slidePixelSize.width ++ "px")
                 , ("height", toString model.options.slidePixelSize.height ++ "px")
                 , ("transform", "translate(-50%, -50%) scale(" ++ toString model.scale ++ ")")
