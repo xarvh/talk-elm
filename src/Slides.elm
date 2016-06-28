@@ -8,6 +8,7 @@ module Slides exposing
     , defaultOptions
 
     , md
+    , html
     )
 
 
@@ -142,6 +143,10 @@ md markdownContent =
         Markdown.toHtmlWith options.markdown [] (unindent markdownContent)
     }
 
+
+html : Html Message -> Slide
+html htmlNodes =
+    { content = \options -> htmlNodes }
 
 
 --

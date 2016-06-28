@@ -1,4 +1,23 @@
-import Slides exposing (md)
+import Slides exposing (html, defaultOptions)
+
+
+-- import Markdown
+import Html exposing (..)
+import Html.Attributes exposing (class, style)
+
+md markdownContent =
+    html <|
+        div
+            [ class "padded-container" ]
+            [ (Slides.md markdownContent).content defaultOptions ]
+
+
+
+-- import Markdown
+-- md content = Markdown.toHtmlWith Markdown.defaultOptions Slides.unindent content
+
+
+
 
 
 main = Slides.app
@@ -39,12 +58,14 @@ main = Slides.app
         # Single-step build
 
         ```elm
-            $ elm-make HelloWorld.elm
+        $ elm-make HelloWorld.elm
         ```
 
-        ➡
+        [➡]()
 
-        `index.html`
+        ```elm
+        index.html
+        ```
         """
 
 
