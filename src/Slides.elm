@@ -357,34 +357,21 @@ slideView model =
 view : Model -> Html Message
 view model =
     div
-        [ class "slide"
+        [ class "slides"
         , style
-            [   ("position", "relative")
-            ,   ("width", "100%")
-            ,   ("height", "100%")
-            ,   ("overflow", "hidden")
-            ]
-        ]
-        [ div
-            [ class "slides"
-            , style
-                [ ("width", toString model.options.slidePixelSize.width ++ "px")
-                , ("height", toString model.options.slidePixelSize.height ++ "px")
-                , ("transform", "translate(-50%, -50%) scale(" ++ toString model.scale ++ ")")
+            [ ("width", toString model.options.slidePixelSize.width ++ "px")
+            , ("height", toString model.options.slidePixelSize.height ++ "px")
+            , ("transform", "translate(-50%, -50%) scale(" ++ toString model.scale ++ ")")
 
-                , ("left", "50%")
-                , ("top", "50%")
-                , ("bottom", "auto")
-                , ("right", "auto")
-                , ("position", "absolute")
-                , ("overflow", "hidden")
-                ]
+            , ("left", "50%")
+            , ("top", "50%")
+            , ("bottom", "auto")
+            , ("right", "auto")
+            , ("position", "absolute")
+            , ("overflow", "hidden")
             ]
---             [ div
---                 [ class "padded-container" ]
-            (slideView model)
---             ]
         ]
+        (slideView model)
 
 
 
