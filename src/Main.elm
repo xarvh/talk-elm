@@ -1,28 +1,9 @@
-import Slides exposing (html, defaultOptions)
-
-
--- import Markdown
-import Html exposing (..)
-import Html.Attributes exposing (class, style)
-
-md markdownContent =
-    html <|
-        div
-            [ class "padded-container" ]
-            [ (Slides.md markdownContent).content defaultOptions ]
-
-
-
--- import Markdown
--- md content = Markdown.toHtmlWith Markdown.defaultOptions Slides.unindent content
-
-
-
+import Slides exposing (md, slidesDefaultOptions)
 
 
 main = Slides.app
 
-    Slides.defaultOptions
+    slidesDefaultOptions
 
     [ md
         """
