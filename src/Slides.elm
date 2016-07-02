@@ -5,11 +5,12 @@ module Slides exposing
     , app
 
     , Options
-    , defaultOptions
+    , slidesDefaultOptions
 
     , md
     , html
     )
+
 
 
 import AnimationFrame
@@ -28,19 +29,10 @@ import Time
 import Window
 
 
-markdownDefaultOptions = Markdown.defaultOptions
 
-
-defaultOptions : Options
-defaultOptions =
-    { markdown =
-        { markdownDefaultOptions
-        | githubFlavored = Just { tables = True, breaks = False }
-        , defaultHighlighting = Just "html"
-        , smartypants = True
-        }
-
-    , slidePixelSize =
+slidesDefaultOptions : Options
+slidesDefaultOptions =
+    { slidePixelSize =
         { height = 700
         , width = 960
         }
@@ -107,8 +99,7 @@ unindent multilineString =
 --
 
 type alias Options =
-    { markdown : Markdown.Options
-    , slidePixelSize : { height : Int, width : Int }
+    { slidePixelSize : { height : Int, width : Int }
     , easingFunction :  Float -> Float
     , singleSlideAnimationDuration : Time.Time
     , keyCodesToMessage : List { message : Message, keyCodes : List Int }
@@ -116,7 +107,7 @@ type alias Options =
 
 
 type alias Slide =
-    { content : Options -> Html Message
+    { content : Html Message
     }
 
 
@@ -139,14 +130,31 @@ type alias Model =
 --
 md : String -> Slide
 md markdownContent =
-    { content = \options ->
-        Markdown.toHtmlWith options.markdown [] (unindent markdownContent)
-    }
+    let
+        markdownDefaultOptions =
+            Markdown.defaultOptions
+
+        options =
+            { markdownDefaultOptions
+            | githubFlavored = Just { tables = True, breaks = False }
+            , defaultHighlighting = Nothing
+            , smartypants = True
+            }
+
+        content =
+            Markdown.toHtmlWith options [] (unindent markdownContent)
+    in
+        { content = content }
 
 
+
+--
+-- Html slide constructor
+--
 html : Html Message -> Slide
 html htmlNodes =
-    { content = \options -> htmlNodes }
+    { content = htmlNodes }
+
 
 
 --
@@ -323,6 +331,11 @@ slideView model =
         rightSlideIndex = leftSlideIndex + 1
         traslation = easing <| model.currentPosition - toFloat leftSlideIndex
 
+        emptySlide = md ""
+
+        slideByIndex index =
+            Maybe.withDefault emptySlide <| Array.get index model.slides
+
         slideSection offset index =
             section
                 [ style
@@ -331,7 +344,9 @@ slideView model =
                     , ("transform", "translate(" ++ toString (offset - traslation * 100) ++ "%)")
                     ]
                 ]
-                [ (Maybe.withDefault (md "") <| Array.get index model.slides).content model.options
+                [ div
+                    [ class "padded-container" ]
+                    [(slideByIndex index).content]
                 ]
     in
         [ slideSection 0 leftSlideIndex
@@ -365,7 +380,10 @@ view model =
                 , ("overflow", "hidden")
                 ]
             ]
+--             [ div
+--                 [ class "padded-container" ]
             (slideView model)
+--             ]
         ]
 
 
