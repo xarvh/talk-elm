@@ -23,6 +23,7 @@ import Keyboard
 import Markdown
 import Mouse
 import Navigation
+import SmoothAnimator
 import String
 import Task
 import Time
@@ -97,7 +98,6 @@ unindent multilineString =
 --
 -- Model
 --
-
 type alias Options =
     { slidePixelSize : { height : Int, width : Int }
     , easingFunction :  Float -> Float
@@ -118,9 +118,9 @@ type alias Model =
     , scale : Float
 
     , pause : Bool
-    , initialPosition : Int
-    , targetPosition : Int
-    , currentPosition : Float
+
+    , slideAnimation : SmoothAnimator.Model
+--     , fragmentAnimation : SmoothAnimator.Model
     }
 
 
@@ -177,54 +177,8 @@ locationToSlideIndex location =
 
 modelToHashUrl : Model -> String
 modelToHashUrl model =
-    "#" ++ toString model.targetPosition
+    "#" ++ toString model.slideAnimation.targetPosition
 
-
-newPosition m deltaTime =
-    if m.pause
-    then m.currentPosition
-    else
-        let
-            totalDistance = abs <| m.initialPosition - m.targetPosition
-            distance = toFloat m.targetPosition - m.currentPosition
-            absDistance = abs distance
-
-            (direction, limitTo) =
-                if distance > 0
-                then (1, min)
-                else (-1, max)
-
-            velocity =
-                toFloat (max 1 totalDistance) / m.options.singleSlideAnimationDuration
-
-            deltaPosition =
-                deltaTime * direction * velocity
-
-            newUnclampedPosition =
-                m.currentPosition + deltaPosition
-
-        in
-            -- either min or max, depending on the direction we're going
-            newUnclampedPosition `limitTo` toFloat m.targetPosition
-
-
-clampSlideIndex : Model -> Int -> Int
-clampSlideIndex model unclampedIndex =
-    clamp 0 (Array.length model.slides - 1) unclampedIndex
-
-
-selectSlide : Model -> Int -> (Model, Cmd Message)
-selectSlide oldModel unclampedTargetPosition =
-    let
-        newTargetIndex = clampSlideIndex oldModel unclampedTargetPosition
-        newModel = { oldModel | targetPosition = newTargetIndex }
-
-        cmd =
-            if newModel.targetPosition == oldModel.targetPosition
-            then Cmd.none
-            else Navigation.newUrl <| modelToHashUrl newModel
-    in
-        (newModel, cmd)
 
 
 type Message
@@ -249,45 +203,77 @@ init options slides location =
             , options = options
             , scale = 1.0
             , pause = False
-            , initialPosition = 0
-            , targetPosition = 0
-            , currentPosition = 0.0
+            , slideAnimation = SmoothAnimator.Model 0 0 0.0
             }
 
         (model, urlCmd) =
             urlUpdate location model0
 
+        slidePosition0 =
+            model.slideAnimation.targetPosition
+
+        slideAnimation =
+            SmoothAnimator.Model slidePosition0 slidePosition0 (toFloat slidePosition0)
+
         cmdWindow =
             Task.perform (\_ -> Noop) WindowResizes Window.size
     in
-        ({ model | currentPosition = toFloat model.targetPosition }, Cmd.batch [cmdWindow, urlCmd])
+        ({ model | slideAnimation = slideAnimation }, Cmd.batch [cmdWindow, urlCmd])
+
+
+
+maximumSlideIndex model =
+    Array.length model.slides - 1
+
+
+subUpdate : Model -> SmoothAnimator.Message -> (Model, Cmd Message)
+subUpdate oldParentModel childMessage =
+    let
+        duration = oldParentModel.options.singleSlideAnimationDuration
+        maximumPosition = maximumSlideIndex oldParentModel
+        newChildModel = SmoothAnimator.update duration maximumPosition childMessage oldParentModel.slideAnimation
+
+        newParentModel = { oldParentModel | slideAnimation = newChildModel }
+
+        currentIndexInUrl =
+            case childMessage of
+
+                -- user entered a new url manually, which may be out of bounds
+                SmoothAnimator.SelectExact indexFromUrl -> indexFromUrl
+
+                -- url reflects old index
+                _ -> oldParentModel.slideAnimation.targetPosition
+
+        cmd =
+            if newChildModel.targetPosition == currentIndexInUrl
+            then Cmd.none
+            else Navigation.newUrl <| modelToHashUrl newParentModel
+    in
+        (newParentModel, cmd)
+
 
 
 update : Message -> Model -> (Model, Cmd Message)
 update message oldModel =
     let
         noCmd m = (m, Cmd.none)
-        select = selectSlide oldModel
+        sub = subUpdate oldModel
     in
         case message of
             Noop -> noCmd oldModel
 
-            First -> select 0
-            Last -> select 99999
-            Prev -> select <| oldModel.targetPosition - 1
-            Next -> select <| oldModel.targetPosition + 1
+            First -> sub SmoothAnimator.SelectFirst
+            Last -> sub SmoothAnimator.SelectLast
+            Prev -> sub SmoothAnimator.SelectPrev
+            Next -> sub SmoothAnimator.SelectNext
 
-            WindowResizes size -> noCmd <| windowResize oldModel size
+            WindowResizes size ->
+                noCmd <| windowResize oldModel size
 
             AnimationTick deltaTime ->
-                let
-                    currentPosition = newPosition oldModel deltaTime
-                    initialPosition =
-                        if currentPosition /= toFloat oldModel.targetPosition
-                        then oldModel.initialPosition
-                        else oldModel.targetPosition
-                in
-                    noCmd { oldModel | currentPosition = currentPosition, initialPosition = initialPosition }
+                if oldModel.pause
+                then noCmd oldModel
+                else sub <| SmoothAnimator.AnimationTick deltaTime
 
             Pause ->
                 noCmd { oldModel | pause = not oldModel.pause }
@@ -296,20 +282,12 @@ update message oldModel =
 urlUpdate : Navigation.Location -> Model -> (Model, Cmd Message)
 urlUpdate location model =
     case locationToSlideIndex location of
-        -- User entered an invalid has url
+        -- User entered an url we can't parse as index
         Nothing ->
             (model, Navigation.modifyUrl <| modelToHashUrl model)
 
         Just index ->
-            let
-                newIndex =
-                    clampSlideIndex model index
-                cmd =
-                    if newIndex == index
-                    then Cmd.none
-                    else Navigation.newUrl <| modelToHashUrl model
-            in
-                ({ model | targetPosition = newIndex}, cmd)
+            subUpdate model <| SmoothAnimator.SelectExact index
 
 
 
@@ -319,7 +297,7 @@ urlUpdate location model =
 slideView model =
     let
         distance =
-            toFloat model.targetPosition - model.currentPosition
+            toFloat model.slideAnimation.targetPosition - model.slideAnimation.currentPosition
 
         easing =
             if abs distance > 1 then identity
@@ -327,9 +305,9 @@ slideView model =
                 then model.options.easingFunction
                 else Ease.flip model.options.easingFunction
 
-        leftSlideIndex = floor model.currentPosition
+        leftSlideIndex = floor model.slideAnimation.currentPosition
         rightSlideIndex = leftSlideIndex + 1
-        traslation = easing <| model.currentPosition - toFloat leftSlideIndex
+        traslation = easing <| model.slideAnimation.currentPosition - toFloat leftSlideIndex
 
         emptySlide = md ""
 
