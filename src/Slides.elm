@@ -107,7 +107,7 @@ type alias Options =
 
 
 type alias Slide =
-    { content : Html Message
+    { fragments : List (Html Message)
     }
 
 
@@ -120,7 +120,7 @@ type alias Model =
     , pause : Bool
 
     , slideAnimation : SmoothAnimator.Model
---     , fragmentAnimation : SmoothAnimator.Model
+    , fragmentAnimation : SmoothAnimator.Model
     }
 
 
@@ -144,7 +144,7 @@ md markdownContent =
         content =
             Markdown.toHtmlWith options [] (unindent markdownContent)
     in
-        { content = content }
+        { fragments = [content] }
 
 
 
@@ -153,7 +153,7 @@ md markdownContent =
 --
 html : Html Message -> Slide
 html htmlNodes =
-    { content = htmlNodes }
+    { fragments = [htmlNodes] }
 
 
 
@@ -204,6 +204,7 @@ init options slides location =
             , scale = 1.0
             , pause = False
             , slideAnimation = SmoothAnimator.Model 0 0 0.0
+            , fragmentAnimation = SmoothAnimator.Model 0 0 0.0
             }
 
         (model, urlCmd) =
@@ -222,15 +223,11 @@ init options slides location =
 
 
 
-maximumSlideIndex model =
-    Array.length model.slides - 1
-
-
 subUpdate : Model -> SmoothAnimator.Message -> (Model, Cmd Message)
 subUpdate oldParentModel childMessage =
     let
         duration = oldParentModel.options.singleSlideAnimationDuration
-        maximumPosition = maximumSlideIndex oldParentModel
+        maximumPosition = Array.length oldParentModel.slides - 1
         newChildModel = SmoothAnimator.update duration maximumPosition childMessage oldParentModel.slideAnimation
 
         newParentModel = { oldParentModel | slideAnimation = newChildModel }
@@ -324,7 +321,7 @@ slideView model =
                 ]
                 [ div
                     [ class "padded-container" ]
-                    [(slideByIndex index).content]
+                    (slideByIndex index).fragments
                 ]
     in
         [ slideSection 0 leftSlideIndex
