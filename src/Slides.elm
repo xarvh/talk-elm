@@ -291,7 +291,86 @@ urlUpdate location model =
 --
 -- View
 --
-slideView model =
+type SlideMotionDirection
+    = Incoming
+    | Outgoing
+
+type SlideRelativeOrder
+    = SmallerIndex
+    | LargerIndex
+
+type SlideAnimation
+    = Still
+    | Moving SlideMotionDirection SlideRelativeOrder Float
+
+
+-- TODO: this should be customizable
+slideStyle : SlideAnimation -> List (Html.Attribute Message)
+slideStyle slideAnimation =
+    let
+        position =
+            case slideAnimation of
+                Still -> 0
+                Moving direction order completion ->
+                    let
+                        offset = case order of
+                            SmallerIndex -> 0
+                            LargerIndex -> 100
+                    in
+                        offset - completion * 100
+    in
+        [ style
+            [ ("position", "absolute")
+            , ("width", "100%")
+            , ("transform", "translate(" ++ toString position ++ "%)")
+            ]
+        ]
+
+
+fragmentStyle : Float -> List (Html.Attribute Message)
+fragmentStyle completion =
+    [ style
+        [ ("opacity", toString completion) ]
+    ]
+
+
+slideSection attributes fragments =
+    section
+        attributes
+        [ div
+            [ class "slide-content" ]
+            fragments
+        ]
+
+
+fragmentsByPosition model index fragmentPosition =
+    let
+        emptySlide =
+            md ""
+
+        slide =
+            Maybe.withDefault emptySlide <| Array.get index model.slides
+
+        completionByIndex index =
+            (clamp 0 1 <| 1 + fragmentPosition - toFloat index)
+
+        styleFrag index frag =
+            div
+                [ class "fragment-content" ]
+                [ div
+                    (fragmentStyle <| completionByIndex index)
+                    [ frag ]
+                ]
+
+        styledFragments =
+            List.indexedMap styleFrag slide.fragments
+
+    in
+        styledFragments
+
+
+
+slideViewMotion model =
     let
         distance =
             toFloat model.slideAnimation.targetPosition - model.slideAnimation.currentPosition
@@ -302,31 +381,43 @@ slideView model =
                 then model.options.easingFunction
                 else Ease.flip model.options.easingFunction
 
-        leftSlideIndex = floor model.slideAnimation.currentPosition
-        rightSlideIndex = leftSlideIndex + 1
-        traslation = easing <| model.slideAnimation.currentPosition - toFloat leftSlideIndex
+        smallerIndex =
+            floor model.slideAnimation.currentPosition
 
-        emptySlide = md ""
+        largerIndex =
+            smallerIndex + 1
 
-        slideByIndex index =
-            Maybe.withDefault emptySlide <| Array.get index model.slides
+        completion =
+            easing <| model.slideAnimation.currentPosition - toFloat smallerIndex
 
-        slideSection offset index =
-            section
-                [ style
-                    [ ("position", "absolute")
-                    , ("width", "100%")
-                    , ("transform", "translate(" ++ toString (offset - traslation * 100) ++ "%)")
-                    ]
-                ]
-                [ div
-                    [ class "padded-container" ]
-                    (slideByIndex index).fragments
-                ]
+        -- directions for the slide with the smaller index and the slide with the larger index
+        (smallerDirection, largerDirection) =
+            if distance > 0 then (Outgoing, Incoming) else (Incoming, Outgoing)
+
     in
-        [ slideSection 0 leftSlideIndex
-        , slideSection 100 rightSlideIndex
+        [ slideSection (slideStyle <| Moving smallerDirection SmallerIndex completion) (fragmentsByPosition model smallerIndex 0)
+        , slideSection (slideStyle <| Moving largerDirection LargerIndex completion) (fragmentsByPosition model largerIndex 9999)
         ]
+
+
+
+slideViewStill model =
+    let
+        frags =
+            fragmentsByPosition model model.slideAnimation.targetPosition model.fragmentAnimation.currentPosition
+
+    in
+        [ slideSection (slideStyle Still) frags ]
+
+
+slideView model =
+    let
+        isStill = toFloat model.slideAnimation.targetPosition == model.slideAnimation.currentPosition
+    in
+        (if isStill then slideViewStill else slideViewMotion) model
+
+
+
 
 
 view : Model -> Html Message
