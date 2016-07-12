@@ -8,6 +8,7 @@ module Slides exposing
     , slidesDefaultOptions
 
     , md
+    , mdFragments
     , html
     )
 
@@ -130,6 +131,10 @@ type alias Model =
 --
 md : String -> Slide
 md markdownContent =
+    mdFragments [markdownContent]
+
+mdFragments : List String -> Slide
+mdFragments markdownFragments =
     let
         markdownDefaultOptions =
             Markdown.defaultOptions
@@ -141,10 +146,13 @@ md markdownContent =
             , smartypants = True
             }
 
-        content =
-            Markdown.toHtmlWith options [] (unindent markdownContent)
+        fragments =
+            List.map (Markdown.toHtmlWith options [] << unindent) markdownFragments
     in
-        { fragments = [content] }
+        { fragments = fragments }
+
+
+
 
 
 
@@ -395,8 +403,8 @@ slideViewMotion model =
             if distance > 0 then (Outgoing, Incoming) else (Incoming, Outgoing)
 
     in
-        [ slideSection (slideStyle <| Moving smallerDirection SmallerIndex completion) (fragmentsByPosition model smallerIndex 0)
-        , slideSection (slideStyle <| Moving largerDirection LargerIndex completion) (fragmentsByPosition model largerIndex 9999)
+        [ slideSection (slideStyle <| Moving smallerDirection SmallerIndex completion) (fragmentsByPosition model smallerIndex 9999)
+        , slideSection (slideStyle <| Moving largerDirection LargerIndex completion) (fragmentsByPosition model largerIndex 0)
         ]
 
 
