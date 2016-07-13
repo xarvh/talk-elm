@@ -231,8 +231,8 @@ init options slides location =
 
 
 
-subUpdate : Model -> SmoothAnimator.Message -> (Model, Cmd Message)
-subUpdate oldParentModel childMessage =
+slideAnimatorUpdate : Model -> SmoothAnimator.Message -> (Model, Cmd Message)
+slideAnimatorUpdate oldParentModel childMessage =
     let
         duration = oldParentModel.options.singleSlideAnimationDuration
         maximumPosition = Array.length oldParentModel.slides - 1
@@ -258,11 +258,68 @@ subUpdate oldParentModel childMessage =
 
 
 
+
+
+
+fragUpd maximumPosition oldParentModel message =
+    let
+        duration = oldParentModel.options.singleSlideAnimationDuration
+
+        newChildModel = SmoothAnimator.update duration maximumPosition message oldParentModel.fragmentAnimation
+        newParentModel = { oldParentModel | fragmentAnimation = newChildModel }
+    in
+        (newParentModel, Cmd.none)
+
+
+
+fragmentAnimatorUpdate model message =
+    let
+        slide = slideByIndex model model.slideAnimation.targetPosition
+
+        maximumPosition = List.length slide.fragments - 1
+    in
+        case message of
+
+            SmoothAnimator.SelectPrev ->
+                if model.fragmentAnimation.targetPosition - 1 < 0
+                then slideAnimatorUpdate model message
+                else fragUpd maximumPosition model message
+
+            SmoothAnimator.SelectNext ->
+                if model.fragmentAnimation.targetPosition + 1 > maximumPosition
+                then slideAnimatorUpdate model message
+                else fragUpd maximumPosition model message
+
+            SmoothAnimator.AnimationTick deltaTime ->
+                fragUpd maximumPosition model message
+
+            _ ->
+                slideAnimatorUpdate model message
+
+
+
+
+
+upd model message =
+    let
+        isChangingSlides = toFloat model.slideAnimation.targetPosition /= model.slideAnimation.currentPosition
+    in
+        case isChangingSlides of
+            True -> slideAnimatorUpdate model message
+            False -> fragmentAnimatorUpdate model message
+
+
+
+
+
+
+
+
 update : Message -> Model -> (Model, Cmd Message)
 update message oldModel =
     let
         noCmd m = (m, Cmd.none)
-        sub = subUpdate oldModel
+        sub = upd oldModel
     in
         case message of
             Noop -> noCmd oldModel
@@ -292,7 +349,7 @@ urlUpdate location model =
             (model, Navigation.modifyUrl <| modelToHashUrl model)
 
         Just index ->
-            subUpdate model <| SmoothAnimator.SelectExact index
+            slideAnimatorUpdate model <| SmoothAnimator.SelectExact index
 
 
 
@@ -351,13 +408,24 @@ slideSection attributes fragments =
         ]
 
 
-fragmentsByPosition model index fragmentPosition =
+
+
+slideByIndex model index =
     let
         emptySlide =
             md ""
 
         slide =
             Maybe.withDefault emptySlide <| Array.get index model.slides
+    in
+        slide
+
+
+
+fragmentsByPosition model index fragmentPosition =
+    let
+        slide =
+            slideByIndex model index
 
         completionByIndex index =
             (clamp 0 1 <| 1 + fragmentPosition - toFloat index)
