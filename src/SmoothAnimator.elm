@@ -14,6 +14,10 @@ type alias Model =
     }
 
 
+init : Int -> Model
+init position =
+    Model position position (toFloat position)
+
 
 type Message
     = SelectExact Int
