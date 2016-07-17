@@ -6,7 +6,6 @@ import Time
 
 
 
-
 type alias Model =
     { initialPosition : Int
     , targetPosition : Int
@@ -33,9 +32,14 @@ type Message
 newPosition : Time.Time -> Model -> Time.Time -> Float
 newPosition duration m deltaTime =
     let
-        totalDistance = abs <| m.initialPosition - m.targetPosition
-        distance = toFloat m.targetPosition - m.currentPosition
-        absDistance = abs distance
+        totalDistance =
+            abs <| m.initialPosition - m.targetPosition
+
+        distance =
+            toFloat m.targetPosition - m.currentPosition
+
+        absDistance =
+            abs distance
 
         (direction, limitTo) =
             if distance > 0
@@ -54,8 +58,6 @@ newPosition duration m deltaTime =
     in
         -- either min or max, depending on the direction we're going
         newUnclampedPosition `limitTo` toFloat m.targetPosition
-
-
 
 
 
@@ -85,6 +87,3 @@ update duration maximumPosition message oldModel =
                         else oldModel.targetPosition
                 in
                     { oldModel | currentPosition = currentPosition, initialPosition = initialPosition }
-
-
-

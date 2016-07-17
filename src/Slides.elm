@@ -1,5 +1,5 @@
 module Slides exposing
-    ( Message (Next, Prev)
+    ( Message (..)
     , Model
     , program
     , app
@@ -10,6 +10,7 @@ module Slides exposing
     , md
     , mdFragments
     , html
+    , htmlFragments
     )
 
 
@@ -42,7 +43,7 @@ type alias Model =
 
     , scale : Float
 
-    , pauseAnimation : Bool
+    , isPaused : Bool
 
     , slideAnimation : SmoothAnimator.Model
     , fragmentAnimation : SmoothAnimator.Model
@@ -199,10 +200,10 @@ mdFragments markdownFragments =
             , smartypants = True
             }
 
-        fragments =
+        htmlNodes =
             List.map (Markdown.toHtmlWith options [] << StringUnindent.unindent) markdownFragments
     in
-        { fragments = fragments }
+        htmlFragments htmlNodes
 
 
 
@@ -210,8 +211,13 @@ mdFragments markdownFragments =
 -- API: Html slide constructor
 --
 html : Html Message -> Slide
-html htmlNodes =
-    { fragments = [htmlNodes] }
+html htmlNode =
+    htmlFragments [htmlNode]
+
+
+htmlFragments : List (Html Message) -> Slide
+htmlFragments htmlNodes =
+    { fragments = htmlNodes }
 
 
 
@@ -230,14 +236,7 @@ modelToHashUrl model =
 
 slideByIndex : Model -> Int -> Slide
 slideByIndex model index =
-    let
-        emptySlide =
-            md ""
-
-        slide =
-            Maybe.withDefault emptySlide <| Array.get index model.slides
-    in
-        slide
+    Maybe.withDefault (md "") <| Array.get index model.slides
 
 
 slideDistance : Model -> Float
@@ -249,8 +248,8 @@ slideDistance model =
 --
 -- Update
 --
-windowResize : Model -> Window.Size -> Model
-windowResize m size =
+scaleUpdate : Model -> Window.Size -> Model
+scaleUpdate m size =
     let
         scale = min
             (toFloat size.width / toFloat m.options.slidePixelSize.width)
@@ -262,11 +261,17 @@ windowResize m size =
 slideAnimatorUpdate : Model -> SmoothAnimator.Message -> (Model, Cmd Message)
 slideAnimatorUpdate oldParentModel childMessage =
     let
-        duration = oldParentModel.options.animationDuration
-        maximumPosition = Array.length oldParentModel.slides - 1
-        newChildModel = SmoothAnimator.update duration maximumPosition childMessage oldParentModel.slideAnimation
+        duration =
+            oldParentModel.options.animationDuration
 
-        newParentModel = { oldParentModel | slideAnimation = newChildModel }
+        maximumPosition =
+            Array.length oldParentModel.slides - 1
+
+        newChildModel =
+            SmoothAnimator.update duration maximumPosition childMessage oldParentModel.slideAnimation
+
+        newParentModel =
+            { oldParentModel | slideAnimation = newChildModel }
 
         currentIndexInUrl =
             case childMessage of
@@ -345,28 +350,26 @@ update message oldModel =
                 mixedUpdater (oldModel.fragmentAnimation.targetPosition + 1 > maximumPosition) SmoothAnimator.SelectNext
 
             WindowResizes size ->
-                noCmd <| windowResize oldModel size
+                noCmd <| scaleUpdate oldModel size
 
             PauseAnimation ->
-                noCmd { oldModel | pauseAnimation = not oldModel.pauseAnimation }
+                noCmd { oldModel | isPaused = not oldModel.isPaused }
 
             AnimationTick deltaTime ->
-                if oldModel.pauseAnimation
+                if oldModel.isPaused
                 then noCmd oldModel
                 else
                     let
-                        (newModel, cmd) =
-                            mixedUpdater False (SmoothAnimator.AnimationTick deltaTime)
-
                         distance =
-                            -- TODO: oldModel or newModel seems to have no difference o_O
                             slideDistance oldModel
 
-                        m' =
-                            if distance /= 0 then resetFragments distance newModel else newModel
+                        (m, cmd) =
+                            mixedUpdater False (SmoothAnimator.AnimationTick deltaTime)
 
+                        newModel =
+                            (if distance /= 0 then resetFragments distance else identity) m
                     in
-                        (m', cmd)
+                        (newModel, cmd)
 
 
 
@@ -392,7 +395,7 @@ init options slides location =
             { slides = Array.fromList slides
             , options = options
             , scale = 1.0
-            , pauseAnimation = False
+            , isPaused = False
             , slideAnimation = SmoothAnimator.init 0
             , fragmentAnimation = SmoothAnimator.init 0
             }
@@ -484,12 +487,9 @@ slideViewMotion model =
 
 
 slideViewStill model =
-    let
-        frags =
-            fragmentsByPosition model model.slideAnimation.targetPosition model.fragmentAnimation.currentPosition
-
-    in
-        [ slideSection (model.options.slideAttributes Still) frags ]
+    [   slideSection (model.options.slideAttributes Still)
+        <| fragmentsByPosition model model.slideAnimation.targetPosition model.fragmentAnimation.currentPosition
+    ]
 
 
 
