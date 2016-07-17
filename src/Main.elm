@@ -1,4 +1,4 @@
-import Slides exposing (md, slidesDefaultOptions)
+import Slides exposing (md, mdFragments, slidesDefaultOptions)
 
 
 main = Slides.app
@@ -16,20 +16,20 @@ main = Slides.app
         """
 
 
---     , mdMultiple
---         [   """
---             I love the concepts behind functional programming.
---             """
--- 
---         ,   """
---             So I tried to learn Haskell and Clojure.
---             """
--- 
---         ,   """
---             They are great languages, but I struggled every time
---             I wanted to go past a tutorial.
---             """
---         ]
+    , mdFragments
+        [   """
+            I love the concepts behind functional programming.
+            """
+
+        ,   """
+            So I tried to learn Haskell and Clojure.
+            """
+
+        ,   """
+            They are great languages, but I struggled every time
+            I wanted to go past a tutorial.
+            """
+        ]
 
 
     , md
