@@ -522,11 +522,34 @@ keyPressDispatcher keyCodeMap keyCode =
 mouseClickDispatcher : Model -> Mouse.Position -> Message
 mouseClickDispatcher model position =
     let
-        -- If click is left or top of the slide, go back; anywhere else, go forwards.
-        margins component =
-            toFloat (component model.windowSize) - (scale model) * toFloat (component model.options.slidePixelSize)
+        s = scale model
+
+        slide component = s * toFloat (component model.options.slidePixelSize)
+
+        window component = toFloat <| component model.windowSize
+
+        h = slide .height
+        w = slide .width
+
+        hh = window .height
+        ww = window .width
+
+        {-
+            Equation of the straigh line that passes through the slide's bottom left corner and top right corner.
+
+            +------------>
+            |       /
+            |   +--/
+            |   | /|
+            |   |/ |
+            |   /--+
+            v  /
+        -}
+        y x = ( -x/w + (ww-w)/(2*w) + (hh+h)/(2*h) ) * h
+
+        isAbove = toFloat position.y < y (toFloat position.x)
     in
-        if toFloat position.x < (margins .width)/2 || toFloat position.y < (margins .height)/2
+        if isAbove
         then Prev
         else Next
 
