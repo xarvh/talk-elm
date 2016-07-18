@@ -18,7 +18,7 @@ module Slides exposing
 import AnimationFrame
 import Array exposing (Array)
 import Ease
-import Html exposing (..)
+import Html exposing (Html, div, section)
 import Html.Attributes exposing (class, style)
 import Html.App as App
 import Keyboard
@@ -41,7 +41,7 @@ type alias Model =
     { slides : Array Slide
     , options : Options
 
-    , scale : Float
+    , windowSize : Window.Size
 
     , isPaused : Bool
 
@@ -210,6 +210,13 @@ mdFragments markdownFragments =
 --
 -- API: Html slide constructor
 --
+scale : Model -> Float
+scale model =
+    min
+        (toFloat model.windowSize.width / toFloat model.options.slidePixelSize.width)
+        (toFloat model.windowSize.height / toFloat model.options.slidePixelSize.height)
+
+
 html : Html Message -> Slide
 html htmlNode =
     htmlFragments [htmlNode]
@@ -248,16 +255,6 @@ slideDistance model =
 --
 -- Update
 --
-scaleUpdate : Model -> Window.Size -> Model
-scaleUpdate m size =
-    let
-        scale = min
-            (toFloat size.width / toFloat m.options.slidePixelSize.width)
-            (toFloat size.height / toFloat m.options.slidePixelSize.height)
-    in
-        { m | scale = scale }
-
-
 slideAnimatorUpdate : Model -> SmoothAnimator.Message -> (Model, Cmd Message)
 slideAnimatorUpdate oldParentModel childMessage =
     let
@@ -350,7 +347,7 @@ update message oldModel =
                 mixedUpdater (oldModel.fragmentAnimation.targetPosition + 1 > maximumPosition) SmoothAnimator.SelectNext
 
             WindowResizes size ->
-                noCmd <| scaleUpdate oldModel size
+                noCmd <| { oldModel | windowSize = size }
 
             PauseAnimation ->
                 noCmd { oldModel | isPaused = not oldModel.isPaused }
@@ -394,7 +391,7 @@ init options slides location =
         model0 =
             { slides = Array.fromList slides
             , options = options
-            , scale = 1.0
+            , windowSize = options.slidePixelSize
             , isPaused = False
             , slideAnimation = SmoothAnimator.init 0
             , fragmentAnimation = SmoothAnimator.init 0
@@ -500,7 +497,7 @@ view model =
         , style
             [ ("width", toString model.options.slidePixelSize.width ++ "px")
             , ("height", toString model.options.slidePixelSize.height ++ "px")
-            , ("transform", "translate(-50%, -50%) scale(" ++ toString model.scale ++ ")")
+            , ("transform", "translate(-50%, -50%) scale(" ++ toString (scale model) ++ ")")
 
             , ("left", "50%")
             , ("top", "50%")
@@ -513,7 +510,6 @@ view model =
         <| (if slideDistance model == 0 then slideViewStill else slideViewMotion) model
 
 
-
 --
 -- Subscriptions
 --
@@ -523,16 +519,24 @@ keyPressDispatcher keyCodeMap keyCode =
         _ -> Noop --let x = Debug.log "keyCode" keyCode in Noop
 
 
-mouseClickDispatcher position =
-    Next
+mouseClickDispatcher : Model -> Mouse.Position -> Message
+mouseClickDispatcher model position =
+    let
+        -- If click is left or top of the slide, go back; anywhere else, go forwards.
+        margins component =
+            toFloat (component model.windowSize) - (scale model) * toFloat (component model.options.slidePixelSize)
+    in
+        if toFloat position.x < (margins .width)/2 || toFloat position.y < (margins .height)/2
+        then Prev
+        else Next
 
 
--- TODO: add touch nav
+-- TODO: Add support for touch/swipe
 subscriptions model =
     Sub.batch
     -- TODO: switch to Keyboard.presses once https://github.com/elm-lang/keyboard/issues/3 is fixed
     [ Keyboard.ups (keyPressDispatcher model.options.keyCodesToMessage)
-    , Mouse.clicks mouseClickDispatcher
+    , Mouse.clicks <| mouseClickDispatcher model
     , Window.resizes WindowResizes
     , AnimationFrame.diffs AnimationTick
     ]
