@@ -98,7 +98,7 @@ main = Slides.app
 
     , md
         """
-        # Friendly, descriptive error messages
+        # Helpful error messages
 
         ```
         -- ALIAS PROBLEM ------------------------------------------------------ Tree.elm
@@ -140,7 +140,7 @@ main = Slides.app
         """
         # Accessible docs
 
-        Inline docs are displayed on http://package.elm-lang.org/
+        package.elm-lang.org displays inline code docs
 
         elm-package will refuse to publish anything without docs!
         """
@@ -150,12 +150,13 @@ main = Slides.app
         """
         # Official libraries for most common tasks
 
-            * Virtual DOM
-            * SVG rendering
-            * Markdown
-            * Http
-            * Geolocation
-            * Websockets
+        - Virtual DOM
+        - SVG rendering
+        - Markdown
+        - Http
+        - Geolocation
+        - Websockets
+
         """
 
 
