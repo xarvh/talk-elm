@@ -69,7 +69,7 @@ main = Slides.app
         $ elm-make HelloWorld.elm
         ```
 
-        [➡]()
+        <span class='arrow'>➡</span>
 
         ```elm
         index.html

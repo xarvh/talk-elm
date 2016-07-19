@@ -45,8 +45,14 @@ pre {
     padding: 20px;
 }
 
+
 a {
     text-decoration: none;
+    color: #fafafb
+}
+
+
+.arrow {
     transform: translate(-111px) rotate(0.25turn) scale(2);
     display: block;
     color: #fafafb
